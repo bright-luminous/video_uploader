@@ -9,7 +9,7 @@ export class UploadService {
     secretAccessKey: '8DFKpdh7P4WRae6tkWO4oNQ7CgzVc84HuclEt+Bw',
   });
 
-  async uploadFile(file) {
+  async uploadFile(file, startTimestamp, endTimestamp, camera) {
     console.log(file);
     const { originalname } = file;
 
@@ -18,10 +18,13 @@ export class UploadService {
       this.AWS_S3_BUCKET,
       originalname,
       file.mimetype,
+      startTimestamp,
+      endTimestamp,
+      camera
     );
   }
 
-  async s3_upload(file, bucket, name, mimetype) {
+  async s3_upload(file, bucket, name, mimetype, startTimestamp, endTimestamp, camera) {
     const params = {
       Bucket: bucket,
       Key: String(name),
@@ -32,6 +35,7 @@ export class UploadService {
       CreateBucketConfiguration: {
         LocationConstraint: 'ap-south-1',
       },
+      Metadata: {StartTimestamp: startTimestamp, EndTimestamp: endTimestamp, Camera: camera}
     };
 
     try {
