@@ -6,16 +6,18 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UploadService } from './upload.service';
+import { AzureBlobService } from './upload.service';
 import { UploadParams } from './upload.dto';
 
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+  containerName = "upload-images";
+  constructor(private readonly azureBlobService: AzureBlobService) {}
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  uploadFile(@UploadedFile() file: Express.Multer.File, @Body() uploadParams: UploadParams,) {
-    return this.uploadService.uploadFile(file, uploadParams.startTimestamp, uploadParams.endTimestamp, uploadParams.camera);
+  async uploadFile(@UploadedFile() file: Express.Multer.File, @Body() uploadParams: UploadParams,) {
+    await  this.azureBlobService.upload(file, this.containerName, uploadParams.startTimestamp, uploadParams.endTimestamp, uploadParams.camera);
+    return 'file uploaded';
   }
 }

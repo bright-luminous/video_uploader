@@ -1,48 +1,55 @@
-import { Injectable, Req, Res } from '@nestjs/common';
-import * as AWS from 'aws-sdk';
-
+import { uuid } from 'uuidv4';
+import { Injectable } from '@nestjs/common';
+import { BlobServiceClient, BlockBlobClient } from '@azure/storage-blob';
 @Injectable()
-export class UploadService {
-  AWS_S3_BUCKET = 'test-tti-video-bucket';
-  s3 = new AWS.S3({
-    accessKeyId: 'AKIARQUD5L5OQCTOJHF5',
-    secretAccessKey: '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',
-  });
+export class AzureBlobService {
+  readonly azureConnection = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  containerName: string;
 
-  async uploadFile(file, startTimestamp, endTimestamp, camera) {
-    console.log(file);
-    const { originalname } = file;
-
-    return await this.s3_upload(
-      file.buffer,
-      this.AWS_S3_BUCKET,
-      originalname,
-      file.mimetype,
-      startTimestamp,
-      endTimestamp,
-      camera
+  // Upload file
+  getBlobClient(imageName: string): BlockBlobClient {
+    const blobClientService = BlobServiceClient.fromConnectionString(
+      this.azureConnection,
     );
+    const containerClient = blobClientService.getContainerClient(
+      this.containerName,
+    );
+    const blobClient = containerClient.getBlockBlobClient(imageName);
+    return blobClient;
   }
 
-  async s3_upload(file, bucket, name, mimetype, startTimestamp, endTimestamp, camera) {
-    const params = {
-      Bucket: bucket,
-      Key: String(name),
-      Body: file,
-      ACL: 'public-read',
-      ContentType: mimetype,
-      ContentDisposition: 'inline',
-      CreateBucketConfiguration: {
-        LocationConstraint: 'ap-south-1',
+  async upload(
+    file: Express.Multer.File,
+    containerName: string,
+    startTimestamp,
+    endTimestamp,
+    camera,
+  ) {
+    const uploadOptions = {
+      tags: {
+        StartTimestamp: startTimestamp,
+        EndTimestamp: endTimestamp,
+        Camera: camera,
       },
-      Metadata: {StartTimestamp: startTimestamp, EndTimestamp: endTimestamp, Camera: camera}
     };
 
-    try {
-      let s3Response = await this.s3.upload(params).promise();
-      return s3Response;
-    } catch (e) {
-      console.log(e);
-    }
+    this.containerName = containerName;
+    const imgUrl = uuid() + file.originalname;
+    const blobClient = this.getBlobClient(imgUrl);
+    await blobClient.uploadData(file.buffer, uploadOptions);
+    console.log(imgUrl);
+  }
+  //   read file from azureblob
+  async getfile(fileName: string, containerName: string) {
+    this.containerName = containerName;
+    const blobClient = this.getBlobClient(fileName);
+    const blobDownloaded = await blobClient.download();
+    return blobDownloaded.readableStreamBody;
+  }
+  //   delete file
+  async deletefile(filename: string, containerName: string) {
+    this.containerName = containerName;
+    const blobClient = this.getBlobClient(filename);
+    await blobClient.deleteIfExists();
   }
 }
